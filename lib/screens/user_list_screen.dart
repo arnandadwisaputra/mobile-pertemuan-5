@@ -1,22 +1,29 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
-import '../services/api_service.dart';
+import '../repositories/user_repository.dart';
+import '../repositories/user_repository_impl.dart';
 import '../widgets/user_card.dart';
 
+/// Halaman untuk menampilkan daftar pengguna.
+///
+/// Halaman ini menggunakan [UserRepository] untuk mengambil data,
+/// sehingga UI tidak bergantung langsung pada [ApiService].
 class UserListScreen extends StatefulWidget {
-  const UserListScreen({super.key});
+  final UserRepository? repository;
+  const UserListScreen({super.key, this.repository});
   @override
   State<UserListScreen> createState() => _UserListScreenState();
 }
 
 class _UserListScreenState extends State<UserListScreen> {
-  final ApiService _apiService = ApiService();
+  late final UserRepository _repository;
   List<User> _users = [];
   bool _isLoading = true;
   String? _errorMessage;
   @override
   void initState() {
     super.initState();
+    _repository = widget.repository ?? UserRepositoryImpl();
     _loadUsers();
   }
 
@@ -26,7 +33,7 @@ class _UserListScreenState extends State<UserListScreen> {
       _errorMessage = null;
     });
     try {
-      final users = await _apiService.getUsers();
+      final users = await _repository.getUsers();
       setState(() {
         _users = users;
         _isLoading = false;
@@ -59,7 +66,6 @@ class _UserListScreenState extends State<UserListScreen> {
   }
 
   Widget _buildBody() {
-    // Loading state
     if (_isLoading) {
       return const Center(
         child: Column(
@@ -72,7 +78,6 @@ class _UserListScreenState extends State<UserListScreen> {
         ),
       );
     }
-    // Error state
     if (_errorMessage != null) {
       return Center(
         child: Padding(
@@ -103,23 +108,16 @@ class _UserListScreenState extends State<UserListScreen> {
         ),
       );
     }
-    // Empty state
     if (_users.isEmpty) {
       return const Center(child: Text('Tidak ada data pengguna'));
     }
-    // Success state
     return RefreshIndicator(
       onRefresh: _loadUsers,
       child: ListView.builder(
         itemCount: _users.length,
         itemBuilder: (context, index) {
           final user = _users[index];
-          return UserCard(
-            user: user,
-            onTap: () {
-              _showUserDetail(user);
-            },
-          );
+          return UserCard(user: user, onTap: () => _showUserDetail(user));
         },
       ),
     );

@@ -2,27 +2,36 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 import '../models/user.dart';
 
+/// Service untuk komunikasi HTTP dengan REST API.
+///
+/// Class ini menangani semua request HTTP ke API, termasuk
+/// penanganan error dan timeout.
 class ApiService {
-  static const String _baseUrl = 'https://jsonplaceholder.typicode.com';
-  static const Duration _timeout = Duration(seconds: 10);
-  // GET /users
+  final http.Client _client;
+  final String _baseUrl;
+  ApiService({http.Client? client, String? baseUrl})
+    : _client = client ?? http.Client(),
+      _baseUrl = baseUrl ?? AppConfig.baseUrl;
+
+  /// Mengambil daftar pengguna dari API.
+  ///
+  /// Mengembalikan [List<User>] jika berhasil.
+  /// Melempar [Exception] dengan pesan yang ramah pengguna jika gagal.
   Future<List<User>> getUsers() async {
     try {
-      print('Request GET: $_baseUrl/users');
-      final response = await http
-          .get(Uri.parse('$_baseUrl/users'))
-          .timeout(_timeout);
-      // Logging aman: hanya status code
-      print('Response status: ${response.statusCode}');
+      _logRequest('GET', '/users');
+      final response = await _client
+          .get(Uri.parse('$_baseUrl/users'), headers: _buildHeaders())
+          .timeout(Duration(seconds: AppConfig.timeoutSeconds));
+      _logResponse(response.statusCode);
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => User.fromJson(json)).toList();
       } else {
-        throw HttpException(
-          'Gagal memuat data. Status: ${response.statusCode}',
-        );
+        throw Exception('Gagal memuat data. Status: ${response.statusCode}');
       }
     } on TimeoutException {
       throw Exception('Request timeout. Periksa koneksi internet Anda.');
@@ -35,21 +44,19 @@ class ApiService {
     }
   }
 
-  // GET /users/{id}
+  /// Mengambil pengguna berdasarkan [id].
   Future<User> getUserById(int id) async {
     try {
-      print('Request GET: $_baseUrl/users/$id');
-      final response = await http
-          .get(Uri.parse('$_baseUrl/users/$id'))
-          .timeout(_timeout);
-      print('Response status: ${response.statusCode}');
+      _logRequest('GET', '/users/$id');
+      final response = await _client
+          .get(Uri.parse('$_baseUrl/users/$id'), headers: _buildHeaders())
+          .timeout(Duration(seconds: AppConfig.timeoutSeconds));
+      _logResponse(response.statusCode);
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         return User.fromJson(data);
       } else {
-        throw HttpException(
-          'Gagal memuat data. Status: ${response.statusCode}',
-        );
+        throw Exception('Gagal memuat data. Status: ${response.statusCode}');
       }
     } on TimeoutException {
       throw Exception('Request timeout. Periksa koneksi internet Anda.');
@@ -60,29 +67,25 @@ class ApiService {
     }
   }
 
-  // Simulasi login untuk mendapatkan token
-  Future<String> login(String email, String password) async {
-    try {
-      // Simulasi request login
-      await Future.delayed(const Duration(seconds: 1));
-      if (email.isNotEmpty && password.isNotEmpty) {
-        // Token dummy (dalam aplikasi nyata, ini dari server)
-        final token = 'dummy_token_${DateTime.now().millisecondsSinceEpoch}';
-        // ✅ Logging aman: tidak mencetak token
-        print('Login berhasil untuk email: $email');
-        return token;
-      } else {
-        throw Exception('Email dan password tidak boleh kosong');
-      }
-    } catch (e) {
-      throw Exception('Login gagal: $e');
-    }
+  /// Membangun header untuk request HTTP.
+  ///
+  /// Menyertakan API key dari konfigurasi (tidak di-hardcode).
+  Map<String, String> _buildHeaders() {
+    return {'Content-Type': 'application/json', 'X-API-Key': AppConfig.apiKey};
   }
-}
 
-class HttpException implements Exception {
-  final String message;
-  HttpException(this.message);
-  @override
-  String toString() => message;
+  /// Logging request yang aman (tidak mencetak token/API key).
+  void _logRequest(String method, String endpoint) {
+    print('[$method] $endpoint');
+  }
+
+  /// Logging response yang aman (hanya status code).
+  void _logResponse(int statusCode) {
+    print('Response status: $statusCode');
+  }
+
+  /// Menutup client.
+  void dispose() {
+    _client.close();
+  }
 }
