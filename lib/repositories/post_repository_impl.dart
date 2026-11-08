@@ -1,0 +1,15 @@
+import '../models/post.dart';
+import '../services/api_service.dart';
+import 'post_repository.dart';
+
+/// Implementasi konkret dari [PostRepository] menggunakan [ApiService].
+class PostRepositoryImpl implements PostRepository {
+  final ApiService _apiService;
+
+  PostRepositoryImpl(this._apiService);
+
+  @override
+  Future<List<Post>> getPosts() async {
+    return await _apiService.getPosts();
+  }
+}
